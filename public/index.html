@@ -2,61 +2,72 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Software</title>
+  <title>PDF to Excel Generator</title>
   <style>
     :root {
       --bg: #ffffff;
       --text: #000000;
-      --accent: #4CAF50;
-      --card: #f9f9f9;
+      --accent: #4caf50;
+      --card: #f4f4f4;
     }
 
     body.dark {
-      --bg: #121212;
+      --bg: #1e1e1e;
       --text: #ffffff;
-      --card: #1e1e1e;
-    }
-
-    * {
-      box-sizing: border-box;
+      --card: #2a2a2a;
     }
 
     body {
       margin: 0;
-      padding: 0;
-      font-family: "Segoe UI", sans-serif;
+      font-family: 'Segoe UI', sans-serif;
       background-color: var(--bg);
       color: var(--text);
-      transition: background 0.3s ease, color 0.3s ease;
       display: flex;
-      flex-direction: column;
-      min-height: 100vh;
+      height: 100vh;
     }
 
-    .container {
+    .sidebar {
+      width: 300px;
+      background-color: var(--card);
+      padding: 20px;
+      border-right: 1px solid #ccc;
+      overflow-y: auto;
+    }
+
+    .sidebar h2 {
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .file-info {
+      font-size: 14px;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+
+    .main {
       flex: 1;
+      padding: 40px;
       display: flex;
       flex-direction: column;
-      align-items: center;
       justify-content: center;
-      animation: fadeIn 1s ease;
+      align-items: center;
       text-align: center;
     }
 
     h1 {
-      color: var(--accent);
       margin-bottom: 20px;
+      color: var(--accent);
     }
 
     .btn {
       background-color: var(--accent);
-      color: white;
+      color: #fff;
+      padding: 12px 24px;
       border: none;
-      padding: 15px 30px;
       font-size: 16px;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
-      transition: background 0.3s ease;
       margin: 10px;
     }
 
@@ -68,106 +79,144 @@
       display: none;
     }
 
-    .footer {
-      text-align: center;
-      padding: 15px;
-      font-size: 14px;
-      opacity: 0.6;
-      background: var(--card);
-      border-top: 1px solid #ccc;
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--accent);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    .status {
+      margin-top: 15px;
+      font-size: 15px;
+      opacity: 0.9;
     }
 
     .dark-toggle {
       position: absolute;
-      top: 20px;
-      right: 20px;
+      top: 10px;
+      right: 10px;
       background: none;
-      border: 2px solid var(--accent);
       color: var(--accent);
-      padding: 8px 14px;
-      font-size: 14px;
-      border-radius: 6px;
+      border: 1px solid var(--accent);
+      padding: 6px 12px;
+      font-size: 13px;
+      border-radius: 5px;
       cursor: pointer;
     }
 
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: scale(0.98);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
-  <button class="dark-toggle" id="themeToggle">🌓 Dark Mode</button>
-
-  <div class="container">
-    <h1>📄 Upload PDF to Generate Excel</h1>
-
-    <input type="file" id="pdfUpload" accept=".pdf" class="hidden" />
-    <button class="btn" id="uploadBtn">📤 Upload PDF</button>
-
-    <button class="btn hidden" id="downloadBtn">📥 Download Excel</button>
+  <div class="sidebar">
+    <h2>📂 File Info</h2>
+    <div id="fileInfo" class="file-info">No files uploaded.</div>
   </div>
 
-  <div class="footer">
-    Powered by hybritech@2025
+  <div class="main">
+    <button class="dark-toggle" id="themeToggle">🌓 Toggle Theme</button>
+    <h1>📄 Upload PDF & Generate Excel</h1>
+
+    <input type="file" id="pdfUpload" accept=".pdf" multiple class="hidden" />
+    <button class="btn" id="uploadBtn">📤 Upload PDF</button>
+    <button class="btn hidden" id="downloadBtn">📥 Download Excel</button>
+
+    <div class="loader hidden" id="loader"></div>
+    <div class="status" id="statusText"></div>
   </div>
 
   <script>
-    const body = document.body;
-    const themeToggle = document.getElementById("themeToggle");
-
-    // Theme
-    if (localStorage.getItem("theme") === "dark") {
-      body.classList.add("dark");
-    }
-
-    themeToggle.addEventListener("click", () => {
-      body.classList.toggle("dark");
-      localStorage.setItem("theme", body.classList.contains("dark") ? "dark" : "light");
-    });
-
     const uploadInput = document.getElementById("pdfUpload");
     const uploadBtn = document.getElementById("uploadBtn");
     const downloadBtn = document.getElementById("downloadBtn");
+    const loader = document.getElementById("loader");
+    const statusText = document.getElementById("statusText");
+    const fileInfo = document.getElementById("fileInfo");
+    const themeToggle = document.getElementById("themeToggle");
+
+    // 🌙 Theme toggle
+    if (localStorage.getItem("theme") === "dark") {
+      document.body.classList.add("dark");
+    }
+
+    themeToggle.addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+    });
 
     uploadBtn.addEventListener("click", () => uploadInput.click());
 
-    uploadInput.addEventListener("change", () => {
-      const file = uploadInput.files[0];
-      if (!file) return;
+    uploadInput.addEventListener("change", async () => {
+      const files = uploadInput.files;
+      if (!files.length) return;
 
-      const formData = new FormData();
-      formData.append("pdf", file);
+      let totalSize = 0;
+      const startTime = performance.now();
+      const formdata = new FormData();
 
-      uploadBtn.innerText = "⏳ Uploading...";
-
-      fetch("/upload", {
-        method: "POST",
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        uploadBtn.innerText = "✅ Uploaded";
-        if (data.success) {
-          downloadBtn.classList.remove("hidden");
-          downloadBtn.onclick = () => {
-            window.location.href = data.downloadUrl || "/download/excel.xlsx";
-          };
-        } else {
-          alert("❌ Upload failed");
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert("❌ Upload error");
-        uploadBtn.innerText = "📤 Upload PDF";
+      Array.from(files).forEach(file => {
+        formdata.append("file", file);
+        totalSize += file.size;
       });
+
+      // Show info
+      fileInfo.innerHTML = `
+        <strong>${files.length}</strong> file(s) selected<br>
+        Total Size: <strong>${(totalSize / 1024 / 1024).toFixed(2)} MB</strong>
+      `;
+
+      uploadBtn.disabled = true;
+      loader.classList.remove("hidden");
+      statusText.textContent = "⏳ Uploading...";
+
+      try {
+        const res = await fetch("/upload", {
+          method: "POST",
+          body: formdata
+        });
+
+        const result = await res.json();
+        if (result.success) {
+          const timeTaken = ((performance.now() - startTime) / 1000).toFixed(2);
+          statusText.textContent = `✅ Upload completed in ${timeTaken} sec.`;
+          downloadBtn.classList.remove("hidden");
+        } else {
+          statusText.textContent = "❌ Upload failed.";
+        }
+      } catch (err) {
+        statusText.textContent = "❌ Error during upload.";
+        console.error(err);
+      } finally {
+        loader.classList.add("hidden");
+        uploadBtn.disabled = false;
+      }
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = "⏳ Downloading...";
+      statusText.textContent = "";
+
+      const a = document.createElement("a");
+      a.href = "/download/output.xlsx";
+      a.download = "output.xlsx";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = "📥 Download Excel";
+        statusText.textContent = "✅ Download started.";
+      }, 1000);
     });
   </script>
 </body>

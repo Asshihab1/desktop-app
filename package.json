@@ -10,7 +10,12 @@
     "build": "electron-builder"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
+    "multer": "^2.0.2",
+    "nodemon": "^3.1.10",
+    "pdf2table": "^0.0.2"
   },
   "devDependencies": {
     "electron": "^37.2.4",
@@ -23,7 +28,9 @@
       "main.js",
       "public/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "tools/**/*",
+      "generator/**/*"
     ],
     "mac": {
       "target": "dmg"
