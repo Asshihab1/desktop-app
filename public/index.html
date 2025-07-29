@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Software</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+      --accent: #4CAF50;
+      --card: #f9f9f9;
+    }
+
+    body.dark {
+      --bg: #121212;
+      --text: #ffffff;
+      --card: #1e1e1e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      transition: background 0.3s ease, color 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 1s ease;
+      text-align: center;
+    }
+
+    h1 {
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      margin: 10px;
+    }
+
+    .btn:hover {
+      background-color: #388e3c;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 15px;
+      font-size: 14px;
+      opacity: 0.6;
+      background: var(--card);
+      border-top: 1px solid #ccc;
+    }
+
+    .dark-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: none;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      padding: 8px 14px;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="dark-toggle" id="themeToggle">🌓 Dark Mode</button>
+
+  <div class="container">
+    <h1>📄 Upload PDF to Generate Excel</h1>
+
+    <input type="file" id="pdfUpload" accept=".pdf" class="hidden" />
+    <button class="btn" id="uploadBtn">📤 Upload PDF</button>
+
+    <button class="btn hidden" id="downloadBtn">📥 Download Excel</button>
+  </div>
+
+  <div class="footer">
+    Powered by hybritech@2025
+  </div>
+
+  <script>
+    const body = document.body;
+    const themeToggle = document.getElementById("themeToggle");
+
+    // Theme
+    if (localStorage.getItem("theme") === "dark") {
+      body.classList.add("dark");
+    }
+
+    themeToggle.addEventListener("click", () => {
+      body.classList.toggle("dark");
+      localStorage.setItem("theme", body.classList.contains("dark") ? "dark" : "light");
+    });
+
+    const uploadInput = document.getElementById("pdfUpload");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    uploadBtn.addEventListener("click", () => uploadInput.click());
+
+    uploadInput.addEventListener("change", () => {
+      const file = uploadInput.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("pdf", file);
+
+      uploadBtn.innerText = "⏳ Uploading...";
+
+      fetch("/upload", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        uploadBtn.innerText = "✅ Uploaded";
+        if (data.success) {
+          downloadBtn.classList.remove("hidden");
+          downloadBtn.onclick = () => {
+            window.location.href = data.downloadUrl || "/download/excel.xlsx";
+          };
+        } else {
+          alert("❌ Upload failed");
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("❌ Upload error");
+        uploadBtn.innerText = "📤 Upload PDF";
+      });
+    });
+  </script>
+</body>
+</html>

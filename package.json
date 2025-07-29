@@ -1,0 +1,35 @@
+{
+  "name": "software",
+  "version": "1.0.0",
+  "main": "main.js",
+  "description": "Electron + Express desktop app",
+  "author": "Your Name",
+  "license": "ISC",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "electron": "^37.2.4",
+    "electron-builder": "^24.13.2"
+  },
+  "build": {
+    "appId": "com.example.software",
+    "productName": "MySoftware",
+    "files": [
+      "main.js",
+      "public/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}
