@@ -23,7 +23,7 @@
   },
   "build": {
     "appId": "com.example.software",
-    "productName": "MySoftware",
+    "productName": "Hybritech",
     "files": [
       "main.js",
       "public/**/*",
