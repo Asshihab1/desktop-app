@@ -34,14 +34,22 @@
       transition: background-color 0.5s ease, color 0.5s ease;
     }
 
+    .content-wrapper {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
     .sidebar {
       width: 300px;
       background-color: var(--card);
       padding: 20px;
-      border-right: 1px solid #444444;
+      border-right: 1px solid #444;
       overflow-y: auto;
-      height: 100%;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     .sidebar h2 {
@@ -52,13 +60,13 @@
     .file-info {
       font-size: 14px;
       margin-top: 15px;
-      line-height: 1.5;
+      line-height: 1.6;
     }
 
-    .content-wrapper {
+    .sidebar-buttons {
       display: flex;
-      flex: 1;
-      overflow: hidden;
+      gap: 10px;
+      margin-top: 20px;
     }
 
     .main {
@@ -142,21 +150,33 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* Optional smooth animation class */
     body.theme-transition * {
       transition: all 0.5s ease !important;
+    }
+
+    .sidebar-buttons button {
+      flex: 1;
+      font-size: 13px;
+      padding: 6px;
     }
   </style>
 </head>
 <body>
   <div class="content-wrapper">
     <div class="sidebar">
-      <h2>📂 File Info</h2>
-      <div id="fileInfo" class="file-info">No files uploaded.</div>
+      <div>
+        <h2>📂 File Info</h2>
+        <div id="fileInfo" class="file-info">No files uploaded.</div>
+      </div>
+
+      <div class="sidebar-buttons">
+        <button class="btn" id="addMoreBtn">➕ Add More</button>
+        <button class="btn" id="resetBtn">♻️ Reset</button>
+      </div>
     </div>
 
     <div class="main">
-      <button class="dark-toggle" id="themeToggle">🌓 Toggle Theme</button>
+      <button class="dark-toggle" id="themeToggle">🌓Theme</button>
       <h1>📄 Upload PDF & Generate Excel</h1>
 
       <input type="file" id="pdfUpload" accept=".pdf" multiple class="hidden" />
@@ -175,18 +195,20 @@
   <script>
     const uploadInput = document.getElementById("pdfUpload");
     const uploadBtn = document.getElementById("uploadBtn");
+    const addMoreBtn = document.getElementById("addMoreBtn");
+    const resetBtn = document.getElementById("resetBtn");
     const downloadBtn = document.getElementById("downloadBtn");
     const loader = document.getElementById("loader");
     const statusText = document.getElementById("statusText");
     const fileInfo = document.getElementById("fileInfo");
     const themeToggle = document.getElementById("themeToggle");
 
-    // 🌙 Apply stored theme on load
+    let uploadedFiles = [];
+
     if (localStorage.getItem("theme") === "dark") {
       document.body.classList.add("dark");
     }
 
-    // 🌙 Toggle theme with animation
     themeToggle.addEventListener("click", () => {
       document.body.classList.add("theme-transition");
       document.body.classList.toggle("dark");
@@ -197,22 +219,32 @@
     });
 
     uploadBtn.addEventListener("click", () => uploadInput.click());
+    addMoreBtn.addEventListener("click", () => uploadInput.click());
+    resetBtn.addEventListener("click", () => {
+      uploadedFiles = [];
+      fileInfo.innerHTML = "No files uploaded.";
+      statusText.textContent = "";
+      loader.classList.add("hidden");
+      downloadBtn.classList.add("hidden");
+      uploadInput.value = "";
+    });
 
     uploadInput.addEventListener("change", async () => {
-      const files = uploadInput.files;
+      const files = Array.from(uploadInput.files);
       if (!files.length) return;
 
-      let totalSize = 0;
+      uploadedFiles.push(...files);
+
+      let totalSize = uploadedFiles.reduce((acc, f) => acc + f.size, 0);
       const startTime = performance.now();
       const formdata = new FormData();
 
-      Array.from(files).forEach(file => {
+      uploadedFiles.forEach(file => {
         formdata.append("file", file);
-        totalSize += file.size;
       });
 
       fileInfo.innerHTML = `
-        <strong>${files.length}</strong> file(s) selected<br>
+        <strong>${uploadedFiles.length}</strong> file(s) selected<br>
         Total Size: <strong>${(totalSize / 1024 / 1024).toFixed(2)} MB</strong>
       `;
 
