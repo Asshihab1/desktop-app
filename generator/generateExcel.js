@@ -21,8 +21,8 @@ async function generateExcel(results, outputPath) {
       { header: "UPC", key: "upc", width: 18 },
       { header: "Original Qty", key: "original_quantity", width: 12 },
       { header: "Current Qty", key: "current_quantity", width: 12 },
-      { header: "Unit Cost", key: "unit_cost", width: 10},
-      { header: "Total Cost", key: "total_cost", width: 12},
+      { header: "Unit Cost", key: "unit_cost", width: 10 },
+      { header: "Total Cost", key: "total_cost", width: 12 },
     ];
 
     const allRows = [];
@@ -35,7 +35,7 @@ async function generateExcel(results, outputPath) {
       }
 
       const { purchase_order, product_rows, metadata } = result.tables;
-      
+
       if (!purchase_order?.po || !product_rows?.length) {
         errors.push(`File ${index + 1}: Missing required data`);
         return;
@@ -61,10 +61,10 @@ async function generateExcel(results, outputPath) {
     allRows.sort((a, b) => {
       const poCompare = (a.po || "").localeCompare(b.po || "");
       if (poCompare !== 0) return poCompare;
-      
+
       const aSizeIndex = sizeOrder.indexOf((a.size || "").toUpperCase());
       const bSizeIndex = sizeOrder.indexOf((b.size || "").toUpperCase());
-      
+
       if (aSizeIndex !== -1 && bSizeIndex !== -1) return aSizeIndex - bSizeIndex;
       return (a.size || "").localeCompare(b.size || "");
     });
@@ -83,17 +83,15 @@ async function generateExcel(results, outputPath) {
           fgColor: { argb: "FFEEEEEE" }
         };
       }
-      
+
       // Format numeric cells
+      // Format numeric cells (without currency symbols)
+      // In the 'Apply styling' section of generateExcel.js, replace the number formatting with:
+      
       if (rowNumber > 1) {
-        ['unit_cost', 'total_cost'].forEach(key => {
+        ['unit_cost', 'total_cost', 'original_quantity', 'current_quantity'].forEach(key => {
           const cell = row.getCell(key);
-          if (cell.value) cell.numFmt = '$#,##0.00';
-        });
-        
-        ['original_quantity', 'current_quantity'].forEach(key => {
-          const cell = row.getCell(key);
-          if (cell.value) cell.numFmt = '#,##0';
+          if (cell.value) cell.numFmt = '0.########'; // Pure numbers with up to 8 decimal places
         });
       }
     });
@@ -112,7 +110,7 @@ async function generateExcel(results, outputPath) {
 
     // Save with error reporting
     await workbook.xlsx.writeFile(outputPath);
-    
+
     return {
       success: true,
       outputPath,
@@ -120,7 +118,7 @@ async function generateExcel(results, outputPath) {
       totalFiles: results.length,
       errors
     };
-    
+
   } catch (error) {
     return {
       success: false,

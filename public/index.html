@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>PDF to Excel Generator</title>
@@ -19,7 +20,7 @@
 
     body {
       margin: 0;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: "Segoe UI", sans-serif;
       background-color: var(--bg);
       color: var(--text);
       display: flex;
@@ -102,7 +103,7 @@
     }
 
     .hidden {
-      display: none;
+      display: none !important;
     }
 
     .loader {
@@ -146,12 +147,13 @@
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+      0% {
+        transform: rotate(0deg);
+      }
 
-    body.theme-transition * {
-      transition: all 0.5s ease !important;
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     .sidebar-buttons button {
@@ -169,26 +171,57 @@
       font-size: 13px;
       color: #d33;
     }
+
+    #tableInfoSection {
+      display: none;
+    }
+
+    #viewAllBtn:hover {
+      background-color: #388e3c;
+    }
   </style>
 </head>
+
 <body>
   <div class="content-wrapper">
+    <!-- Sidebar -->
     <div class="sidebar">
       <div>
         <h2>📂 File Info</h2>
         <div id="fileInfo" class="file-info">No files uploaded.</div>
 
-        <div class="file-info" style="margin-top: 30px;">
-          <h3 style="margin-bottom: 10px;">📊 Table Info</h3>
+        <!-- Table Info Section -->
+        <div id="tableInfoSection" class="file-info" style="margin-top: 30px">
+          <h3 style="margin-bottom: 10px">📊 Table Info</h3>
           <p><strong>Total Files:</strong> <span id="totalCount">0</span></p>
-          <p><strong>Successful:</strong> <span id="successCount">0</span></p>
-          <p style="color: #e53935;"><strong>Failed:</strong> <span id="failedCount">0</span></p>
+          <p>
+            <strong style="color: #19d222">Successful:</strong>
+            <span id="successCount">0</span>
+          </p>
+          <p style="color: #e53935">
+            <strong>Failed:</strong> <span id="failedCount">0</span>
+          </p>
 
-          <div id="failedFilesContainer" style="margin-top: 10px; display: none;">
+          <div id="failedFilesContainer" style="margin-top: 10px; display: none">
             <p><strong>❌ Failed Files:</strong></p>
-            <ul id="failedFilesList">
-              <!-- Filled dynamically -->
-            </ul>
+            <ul id="failedFilesList"></ul>
+
+            <div style="text-align:left; margin-top: 10px">
+              <button id="viewAllBtn" style="
+                  font-size: 12px;
+                  padding: 2px 6px;
+                  background-color: #4caf50;
+                  color: white;
+                  border: none;
+                  border-radius: 5px;
+                  font-weight: bold;
+                  margin-left: 12px;
+                  cursor: pointer;
+                  transition: background-color 0.3s ease;
+                ">
+                🌐 View All
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -212,11 +245,88 @@
     </div>
   </div>
 
-  <footer>
-    Powered by Hybritech Innovation LTD©2025
-  </footer>
+  <!-- Modal -->
+  <div id="customDialog" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        background-color: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(5px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        overflow: auto;
+        box-sizing: border-box;
+        padding: 20px;
+      ">
+    <div style="
+          background-color: var(--card, #fff);
+          color: var(--text, #000);
+          padding: 20px;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 480px;
+          max-height: 100%;
+          overflow-y: auto;
+          position: relative;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+          box-sizing: border-box;
+        ">
+      <!-- Close Modal -->
+      <button id="closeDialog" style="
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            color: var(--accent, #4caf50);
+            cursor: pointer;
+          ">
+        ✖
+      </button>
+
+      <h3 style="margin-top: 0">📄 Failure Files</h3>
+
+      <!-- Search with Clear -->
+      <div style="position: relative; margin-bottom: 10px">
+        <input id="searchInput" type="text" placeholder="Search..." style="
+              width: 90%;
+              color: white;
+              margin: auto;
+              background: none;
+              padding: 8px 30px 8px 10px;
+              border: 1px solid #ccc;
+              border-radius: 6px;
+            " />
+        <span id="clearSearch" style="
+              position: absolute;
+              right: 10px;
+              top: 50%;
+              transform: translateY(-50%);
+              cursor: pointer;
+              font-size: 16px;
+              color: #999;
+              display: none;
+            ">✖</span>
+      </div>
+
+      <ul id="dialogList" style="padding-left: 20px; margin: 0"></ul>
+    </div>
+  </div>
+
+  <footer>Powered by Hybritech Innovation LTD©2025</footer>
 
   <script>
+    let dialog = document.getElementById("customDialog");
+    dialog.classList.add("hidden");
+    document.getElementById("closeDialog").onclick = () => {
+      dialog.classList.add("hidden");
+    };
+
     const uploadInput = document.getElementById("pdfUpload");
     const uploadBtn = document.getElementById("uploadBtn");
     const addMoreBtn = document.getElementById("addMoreBtn");
@@ -230,8 +340,35 @@
     const totalCount = document.getElementById("totalCount");
     const successCount = document.getElementById("successCount");
     const failedCount = document.getElementById("failedCount");
-    const failedFilesContainer = document.getElementById("failedFilesContainer");
+    const failedFilesContainer = document.getElementById(
+      "failedFilesContainer"
+    );
     const failedFilesList = document.getElementById("failedFilesList");
+    const tableInfoSection = document.getElementById("tableInfoSection");
+    const viewAllBtn = document.getElementById("viewAllBtn");
+
+    const dialogList = document.getElementById("dialogList");
+    const searchInput = document.getElementById("searchInput");
+    const clearSearch = document.getElementById("clearSearch");
+
+    searchInput.addEventListener("input", () => {
+      const value = searchInput.value.trim().toLowerCase();
+      clearSearch.style.display = value ? "inline" : "none";
+
+      Array.from(dialogList.querySelectorAll("li")).forEach((li) => {
+        li.style.display = li.textContent.toLowerCase().includes(value)
+          ? ""
+          : "none";
+      });
+    });
+
+    clearSearch.addEventListener("click", () => {
+      searchInput.value = "";
+      clearSearch.style.display = "none";
+      Array.from(dialogList.querySelectorAll("li")).forEach(
+        (li) => (li.style.display = "")
+      );
+    });
 
     let uploadedFiles = [];
 
@@ -242,7 +379,10 @@
     themeToggle.addEventListener("click", () => {
       document.body.classList.add("theme-transition");
       document.body.classList.toggle("dark");
-      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+      localStorage.setItem(
+        "theme",
+        document.body.classList.contains("dark") ? "dark" : "light"
+      );
       setTimeout(() => {
         document.body.classList.remove("theme-transition");
       }, 500);
@@ -263,6 +403,8 @@
       failedCount.textContent = "0";
       failedFilesList.innerHTML = "";
       failedFilesContainer.style.display = "none";
+      tableInfoSection.style.display = "none";
+      viewAllBtn.classList.add("hidden");
     });
 
     uploadInput.addEventListener("change", async () => {
@@ -274,7 +416,7 @@
       const startTime = performance.now();
       const formdata = new FormData();
 
-      uploadedFiles.forEach(file => {
+      uploadedFiles.forEach((file) => {
         formdata.append("file", file);
       });
 
@@ -290,27 +432,59 @@
       try {
         const res = await fetch("/upload", {
           method: "POST",
-          body: formdata
+          body: formdata,
         });
 
         const result = await res.json();
-        if (result.success) {
-          const timeTaken = ((performance.now() - startTime) / 1000).toFixed(2);
+        if (result.success && Array.isArray(result.result)) {
+          const timeTaken = ((performance.now() - startTime) / 1000).toFixed(
+            2
+          );
           statusText.textContent = `✅ Upload completed in ${timeTaken} sec.`;
           downloadBtn.classList.remove("hidden");
 
-          // Update table info
-          totalCount.textContent = result.total || uploadedFiles.length;
-          successCount.textContent = result.successCount || 0;
-          failedCount.textContent = result.failedFiles?.length || 0;
+          // Show Table Info section now
+          tableInfoSection.style.display = "block";
+
+          let successCounter = 0;
+          let failedFiles = [];
+
+          result.result.forEach((fileResult) => {
+            const rows = fileResult.tables?.product_rows || [];
+            if (fileResult.success && rows.length > 0) {
+              successCounter++;
+            } else {
+              failedFiles.push(fileResult.file);
+            }
+          });
+
+          totalCount.textContent = result.result.length;
+          successCount.textContent = successCounter;
+          failedCount.textContent = failedFiles.length;
 
           failedFilesList.innerHTML = "";
-          if (result.failedFiles && result.failedFiles.length) {
+          dialogList.innerHTML = "";
+          if (failedFiles.length > 0) {
             failedFilesContainer.style.display = "block";
-            result.failedFiles.forEach(f => {
-              const li = document.createElement("li");
-              li.textContent = f;
-              failedFilesList.appendChild(li);
+
+            viewAllBtn.addEventListener("click", () => {
+              dialog.classList.remove("hidden");
+            });
+
+            failedFiles.forEach((fileName, index) => {
+              // Show only 2 items in the sidebar list
+              if (index < 2) {
+                viewAllBtn.classList.remove("hidden");
+                const li = document.createElement("li");
+                li.style.listStyle = "none";
+                li.textContent = fileName;
+                failedFilesList.appendChild(li);
+              }
+
+              // Show all in the dialog list
+              const dialogLi = document.createElement("li");
+              dialogLi.textContent = fileName;
+              dialogList.appendChild(dialogLi);
             });
           } else {
             failedFilesContainer.style.display = "none";
@@ -348,4 +522,5 @@
     });
   </script>
 </body>
+
 </html>

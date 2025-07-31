@@ -51,8 +51,8 @@ const extractPdfText = async (pdfPath) => {
           for (let i = startRow; i < Math.min(startRow + linesToCheck, cleanRows.length); i++) {
             const rowText = cleanRows[i].join(" ");
             if (rowText.includes(searchTerm)) {
-              return rowText.split(searchTerm)[1]?.trim() || 
-                     cleanRows[i+1]?.join(" ").trim() || "";
+              return rowText.split(searchTerm)[1]?.trim() ||
+                cleanRows[i + 1]?.join(" ").trim() || "";
             }
           }
           return "";
@@ -81,51 +81,45 @@ const extractPdfText = async (pdfPath) => {
             tableMeta.style_description = findMultiLineField(i, "Style Description:");
           }
 
-          // Brand description with fallback
-          // if (!tableMeta.brand_desc) {
-          //   tableMeta.brand_desc = findMultiLineField(i, "BRAND DESC:");
-          // }
-
-
 
           // brand desc started====================
 
 
-if (!tableMeta.brand_desc && /BRAND DESC:/i.test(rowStr)) {
+          if (!tableMeta.brand_desc && /BRAND DESC:/i.test(rowStr)) {
 
-  const currentLineMatch = rowStr.match(/BRAND DESC:\s*(.+?)(?:\s*(?:PRODUCT CATEGORY DESC|$))/i);
-  if (currentLineMatch && currentLineMatch[1].trim()) {
-    tableMeta.brand_desc = currentLineMatch[1].trim();
-  }
-  // Method 2: Get from next line if current line only contains label
-  else if (rowStr.trim() === "BRAND DESC:" && i + 1 < cleanRows.length) {
-    tableMeta.brand_desc = cleanRows[i + 1].join(" ").trim();
-  }
-  // Method 3: Look ahead in following lines
-  else {
-    for (let j = i + 1; j < Math.min(i + 3, cleanRows.length); j++) {
-      const nextLine = cleanRows[j].join(" ").trim();
-      if (nextLine && !nextLine.includes(":")) { // Skip lines with other labels
-        tableMeta.brand_desc = nextLine;
-        break;
-      }
-    }
-  }
-  
-  // Only do minimal cleaning
-  if (tableMeta.brand_desc) {
-    tableMeta.brand_desc = tableMeta.brand_desc
-      .replace(/\s+/g, ' ') // Collapse multiple spaces
-      .trim();
-  }
-}
+            const currentLineMatch = rowStr.match(/BRAND DESC:\s*(.+?)(?:\s*(?:PRODUCT CATEGORY DESC|$))/i);
+            if (currentLineMatch && currentLineMatch[1].trim()) {
+              tableMeta.brand_desc = currentLineMatch[1].trim();
+            }
+            // Method 2: Get from next line if current line only contains label
+            else if (rowStr.trim() === "BRAND DESC:" && i + 1 < cleanRows.length) {
+              tableMeta.brand_desc = cleanRows[i + 1].join(" ").trim();
+            }
+            // Method 3: Look ahead in following lines
+            else {
+              for (let j = i + 1; j < Math.min(i + 3, cleanRows.length); j++) {
+                const nextLine = cleanRows[j].join(" ").trim();
+                if (nextLine && !nextLine.includes(":")) { // Skip lines with other labels
+                  tableMeta.brand_desc = nextLine;
+                  break;
+                }
+              }
+            }
 
-
+            // Only do minimal cleaning
+            if (tableMeta.brand_desc) {
+              tableMeta.brand_desc = tableMeta.brand_desc
+                .replace(/\s+/g, ' ') // Collapse multiple spaces
+                .trim();
+            }
+          }
 
 
 
 
-// Brand description with fallback
+
+
+          // Brand description with fallback
 
 
           // Commercial goods with better handling
@@ -164,8 +158,8 @@ if (!tableMeta.brand_desc && /BRAND DESC:/i.test(rowStr)) {
                   original_quantity: parseInt(row[4]) || 0,
                   current_quantity: parseInt(row[5]) || 0,
                   shipped_quantity: parseInt(row[6]) || 0,
-                  unit_cost: parseFloat((row[7] || "").replace(/[^0-9.]/g, "")) || 0,
-                  total_cost: parseFloat((row[8] || "").replace(/[^0-9.]/g, "")) || 0,
+                  unit_cost: parseFloat(String(row[7] || "").replace(/[^\d.-]/g, "")) || 0,
+                  total_cost: parseFloat(String(row[8] || "").replace(/[^\d.-]/g, "")) || 0,
                 });
               } catch (e) {
                 continue;
