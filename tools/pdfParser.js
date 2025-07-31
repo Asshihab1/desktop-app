@@ -8,9 +8,7 @@ async function waitForFileExists(filePath, maxRetries = 10, delay = 100) {
       try {
         fs.accessSync(filePath, fs.constants.R_OK);
         return true;
-      } catch (e) {
-
-      }
+      } catch (e) { }
     }
     await new Promise((res) => setTimeout(res, delay));
   }
@@ -31,60 +29,147 @@ const extractPdfText = async (pdfPath) => {
 
     return await new Promise((resolve) => {
       pdf2table.parse(buffer, (err, rows) => {
-        if (err || !Array.isArray(rows) || rows.length === 0) {
+        if (err || !Array.isArray(rows)) {
           return resolve({
             success: false,
             error: err?.message || "Failed to parse PDF using pdf2table",
           });
         }
 
-        const cleanRows = rows.filter((row) =>
-          row.some((cell) => (cell || "").trim() !== "")
-        );
+        // Improved row cleaning
+        const cleanRows = rows
+          .filter(row => row.some(cell => (cell || "").trim() !== ""))
+          .map(row => row.map(cell => (cell || "").trim()));
 
         const table1 = {}; // PO Info
         const table2 = {}; // Shipping Info
         const table3 = []; // Products
+        const tableMeta = {}; // Metadata
+
+        // Helper function to find multi-line fields
+        const findMultiLineField = (startRow, searchTerm, linesToCheck = 3) => {
+          for (let i = startRow; i < Math.min(startRow + linesToCheck, cleanRows.length); i++) {
+            const rowText = cleanRows[i].join(" ");
+            if (rowText.includes(searchTerm)) {
+              return rowText.split(searchTerm)[1]?.trim() || 
+                     cleanRows[i+1]?.join(" ").trim() || "";
+            }
+          }
+          return "";
+        };
 
         for (let i = 0; i < cleanRows.length; i++) {
           const row = cleanRows[i];
           const rowStr = row.join(" ");
 
-          // Table 1: Purchase Order Info
-          if (!table1.po && rowStr.includes("PO:") && rowStr.includes("Factory:")) {
-            const poMatch = rowStr.match(/PO:\s*(\d+)/);
-            const factoryMatch = rowStr.match(/Factory:\s*(.+?)(?:Vendor:|$)/);
-            const vendorMatch = rowStr.match(/Vendor:\s*(.+)/);
-
+          // More flexible PO number detection
+          if (!table1.po && /PO[:]?\s*\d+/i.test(rowStr)) {
+            const poMatch = rowStr.match(/(?:PO|Purchase Order)[:\s]*(\d+)/i);
             table1.po = poMatch?.[1] || "";
-            table1.factory = factoryMatch?.[1]?.trim() || "";
-            table1.vendor = vendorMatch?.[1]?.trim() || "";
           }
 
-          // Table 2: Shipping Info
-          if (!table2.buyer && rowStr.includes("Buyer:")) {
+          // Improved shipping info extraction
+          if (!table2.buyer && /buyer:/i.test(rowStr)) {
             table2.buyer = cleanRows[i + 1]?.join(" ") || "";
             table2.vendor = cleanRows[i + 2]?.join(" ") || "";
             table2.shipping_destination = cleanRows[i + 3]?.join(" ") || "";
           }
 
-          // Table 3: Product Rows
-          if (row.length >= 9 && /^\d{13}$/.test(row[3])) {
-            try {
-              table3.push({
-                color: row[0]?.trim(),
-                color_description: row[1]?.trim(),
-                size: row[2]?.trim(),
-                upc: row[3],
-                original_quantity: parseInt(row[4]) || 0,
-                current_quantity: parseInt(row[5]) || 0,
-                shipped_quantity: parseInt(row[6]) || 0,
-                unit_cost: parseFloat(row[7].replace(/[$,]/g, "")) || 0,
-                total_cost: parseFloat(row[8].replace(/[$,]/g, "")) || 0,
-              });
-            } catch (e) {
-              // Skip malformed row
-              continue;
+          // More robust style extraction
+          if (!tableMeta.style && /style:/i.test(rowStr)) {
+            tableMeta.style = rowStr.match(/style:\s*(\S+)/i)?.[1] || "";
+            tableMeta.style_description = findMultiLineField(i, "Style Description:");
+          }
+
+          // Brand description with fallback
+          // if (!tableMeta.brand_desc) {
+          //   tableMeta.brand_desc = findMultiLineField(i, "BRAND DESC:");
+          // }
+
+
+
+          // brand desc started====================
+
+
+if (!tableMeta.brand_desc && /BRAND DESC:/i.test(rowStr)) {
+
+  const currentLineMatch = rowStr.match(/BRAND DESC:\s*(.+?)(?:\s*(?:PRODUCT CATEGORY DESC|$))/i);
+  if (currentLineMatch && currentLineMatch[1].trim()) {
+    tableMeta.brand_desc = currentLineMatch[1].trim();
+  }
+  // Method 2: Get from next line if current line only contains label
+  else if (rowStr.trim() === "BRAND DESC:" && i + 1 < cleanRows.length) {
+    tableMeta.brand_desc = cleanRows[i + 1].join(" ").trim();
+  }
+  // Method 3: Look ahead in following lines
+  else {
+    for (let j = i + 1; j < Math.min(i + 3, cleanRows.length); j++) {
+      const nextLine = cleanRows[j].join(" ").trim();
+      if (nextLine && !nextLine.includes(":")) { // Skip lines with other labels
+        tableMeta.brand_desc = nextLine;
+        break;
+      }
+    }
+  }
+  
+  // Only do minimal cleaning
+  if (tableMeta.brand_desc) {
+    tableMeta.brand_desc = tableMeta.brand_desc
+      .replace(/\s+/g, ' ') // Collapse multiple spaces
+      .trim();
+  }
+}
+
+
+
+
+
+
+// Brand description with fallback
+
+
+          // Commercial goods with better handling
+          if (!tableMeta.commercial_goods && /COMMERCIAL GOODS/i.test(rowStr)) {
+            tableMeta.commercial_goods = findMultiLineField(i, "COMMERCIAL GOODS DESCRIPTION:");
+          }
+
+          // Dates extraction
+          const extractDate = (fieldName) => {
+            return rowStr.match(new RegExp(`${fieldName}\\s*(\\d{2}/\\d{2}/\\d{4})`))?.[1] || "";
+          };
+
+          if (!tableMeta.original_crd_date) {
+            tableMeta.original_crd_date = extractDate("Original CRD Date:");
+          }
+
+          if (!tableMeta.original_in_dc_date) {
+            tableMeta.original_in_dc_date = extractDate("Original In-DC Date:");
+          }
+
+          // Style proto with more flexible matching
+          if (!tableMeta.style_proto && /STYLE PROTO #/i.test(rowStr)) {
+            tableMeta.style_proto = rowStr.split(/#[:]?\s*/i)[1]?.split(/\s/)[0] || "";
+          }
+
+          // Improved product rows detection
+          if (row.length >= 9) {
+            const upc = row[3]?.replace(/\D/g, "");
+            if (upc && upc.length >= 12) { // More flexible UPC check
+              try {
+                table3.push({
+                  color: row[0] || "",
+                  color_description: row[1] || "",
+                  size: row[2] || "",
+                  upc: upc,
+                  original_quantity: parseInt(row[4]) || 0,
+                  current_quantity: parseInt(row[5]) || 0,
+                  shipped_quantity: parseInt(row[6]) || 0,
+                  unit_cost: parseFloat((row[7] || "").replace(/[^0-9.]/g, "")) || 0,
+                  total_cost: parseFloat((row[8] || "").replace(/[^0-9.]/g, "")) || 0,
+                });
+              } catch (e) {
+                continue;
+              }
             }
           }
         }
@@ -95,6 +180,7 @@ const extractPdfText = async (pdfPath) => {
             purchase_order: table1,
             shipping_info: table2,
             product_rows: table3,
+            metadata: tableMeta,
           },
         });
       });

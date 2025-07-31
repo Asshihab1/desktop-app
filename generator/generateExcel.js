@@ -1,83 +1,132 @@
 const ExcelJS = require("exceljs");
-const fs = require("fs");
-const path = require("path");
 
-/**
- * Generate Excel file with flattened product rows including PO, Vendor, Factory, and Style.
- * @param {Array} results - The JSON results array from PDF parsing
- * @param {string} outputPath - Where to save the generated Excel file
- */
 async function generateExcel(results, outputPath) {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("All Products");
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("All Products");
 
-  // Header
-  sheet.columns = [
-    { header: "PO", key: "po", width: 18 , style:{alignment:{ horizontal: "center"}}},
-    // { header: "Vendor", key: "vendor", width: 25 },
-    // { header: "Factory", key: "factory", width: 30 },
-    { header: "Style", key: "style", width: 20 },
-    { header: "Color", key: "color", width: 10 },
-    { header: "Color Description", key: "color_description", width: 20 },
-    { header: "Size", key: "size", width: 10 },
-    { header: "UPC", key: "upc", width: 18 },
-    { header: "Original Qty", key: "original_quantity", width: 15 },
-    { header: "Current Qty", key: "current_quantity", width: 15 },
-    { header: "Shipped Qty", key: "shipped_quantity", width: 15 },
-    { header: "Unit Cost", key: "unit_cost", width: 12 },
-    { header: "Total Cost", key: "total_cost", width: 15 },
-  ];
+    // Enhanced columns definition
+    sheet.columns = [
+      { header: "PO", key: "po", width: 18 },
+      { header: "Style", key: "style", width: 15 },
+      { header: "Style Description", key: "style_description", width: 30 },
+      { header: "Brand", key: "brand_desc", width: 15 },
+      { header: "Commercial Goods", key: "commercial_goods", width: 40 },
+      { header: "Original CRD", key: "original_crd_date", width: 12 },
+      { header: "Original In-DC", key: "original_in_dc_date", width: 12 },
+      { header: "Style Proto", key: "style_proto", width: 15 },
+      // { header: "Color", key: "color", width: 10 },
+      { header: "Color Description", key: "color_description", width: 20 },
+      { header: "Size", key: "size", width: 8 },
+      { header: "UPC", key: "upc", width: 18 },
+      { header: "Original Qty", key: "original_quantity", width: 12 },
+      { header: "Current Qty", key: "current_quantity", width: 12 },
+      { header: "Unit Cost", key: "unit_cost", width: 10},
+      { header: "Total Cost", key: "total_cost", width: 12},
+    ];
 
-  const allRows = [];
+    const allRows = [];
+    const errors = [];
 
-  for (const result of results) {
-    if (!result.success || !result.tables) continue;
+    results.forEach((result, index) => {
+      if (!result.success) {
+        errors.push(`File ${index + 1}: ${result.error}`);
+        return;
+      }
 
-    const { purchase_order, product_rows } = result.tables;
+      const { purchase_order, product_rows, metadata } = result.tables;
+      
+      if (!purchase_order?.po || !product_rows?.length) {
+        errors.push(`File ${index + 1}: Missing required data`);
+        return;
+      }
 
-    // Extract style from filename if available
-    const styleMatch = result.file.match(/^\s*(\d{6,})/); // e.g., 112373023 from filename
-    const style = styleMatch ? styleMatch[1] : "";
-
-    for (const item of product_rows) {
-      allRows.push({
-        po: purchase_order.po,
-        vendor: purchase_order.vendor,
-        factory: purchase_order.factory,
-        style,
-        ...item,
+      product_rows.forEach(item => {
+        allRows.push({
+          po: purchase_order.po || "N/A",
+          style: metadata?.style || "",
+          style_description: metadata?.style_description || "",
+          brand_desc: metadata?.brand_desc || "",
+          commercial_goods: metadata?.commercial_goods || "",
+          original_crd_date: metadata?.original_crd_date || "",
+          original_in_dc_date: metadata?.original_in_dc_date || "",
+          style_proto: metadata?.style_proto || "",
+          ...item
+        });
       });
-    }
+    });
+
+    // Sort rows
+    const sizeOrder = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
+    allRows.sort((a, b) => {
+      const poCompare = (a.po || "").localeCompare(b.po || "");
+      if (poCompare !== 0) return poCompare;
+      
+      const aSizeIndex = sizeOrder.indexOf((a.size || "").toUpperCase());
+      const bSizeIndex = sizeOrder.indexOf((b.size || "").toUpperCase());
+      
+      if (aSizeIndex !== -1 && bSizeIndex !== -1) return aSizeIndex - bSizeIndex;
+      return (a.size || "").localeCompare(b.size || "");
+    });
+
+    // Add data to sheet
+    allRows.forEach(row => sheet.addRow(row));
+
+    // Apply styling
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) {
+        row.font = { bold: true };
+        row.alignment = { horizontal: "center" };
+        row.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFEEEEEE" }
+        };
+      }
+      
+      // Format numeric cells
+      if (rowNumber > 1) {
+        ['unit_cost', 'total_cost'].forEach(key => {
+          const cell = row.getCell(key);
+          if (cell.value) cell.numFmt = '$#,##0.00';
+        });
+        
+        ['original_quantity', 'current_quantity'].forEach(key => {
+          const cell = row.getCell(key);
+          if (cell.value) cell.numFmt = '#,##0';
+        });
+      }
+    });
+
+    // Freeze header row
+    sheet.views = [{
+      state: 'frozen',
+      ySplit: 1
+    }];
+
+    // Auto-filter
+    sheet.autoFilter = {
+      from: 'A1',
+      to: `${String.fromCharCode(65 + sheet.columns.length - 1)}1`
+    };
+
+    // Save with error reporting
+    await workbook.xlsx.writeFile(outputPath);
+    
+    return {
+      success: true,
+      outputPath,
+      processedFiles: results.filter(r => r.success).length,
+      totalFiles: results.length,
+      errors
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
   }
-
-
-  const sizeOrder = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
-
-  allRows.sort((a, b) => {
-    if (a.po !== b.po) return a.po.localeCompare(b.po);
-    const aIndex = sizeOrder.indexOf(a.size.toUpperCase());
-    const bIndex = sizeOrder.indexOf(b.size.toUpperCase());
-    if (aIndex === -1 || bIndex === -1) {
-      return a.size.localeCompare(b.size); // fallback
-    }
-    return aIndex - bIndex;
-  });
-
-  // Add to sheet
-  allRows.forEach((row) => sheet.addRow(row));
-
-  // Header styling
-  sheet.getRow(1).font = { bold: true };
-  sheet.getRow(1).alignment = { horizontal: "center" };
-  sheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFEEEEEE" },
-  };
-
-  // Save
-  await workbook.xlsx.writeFile(outputPath);
-  console.log(`✅ Excel file saved to: ${outputPath}`);
 }
 
 module.exports = generateExcel;

@@ -90,6 +90,7 @@ app.once("ready", () => {
         file: "output.xlsx",
         path: outputPath,
         result: results,
+        fileNumber: results.length,
         success: true,
         downloadUrl: "/download/output.xlsx", // relative URL for download
       });

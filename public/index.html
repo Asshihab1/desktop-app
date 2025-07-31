@@ -159,6 +159,16 @@
       font-size: 13px;
       padding: 6px;
     }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    ul li {
+      font-size: 13px;
+      color: #d33;
+    }
   </style>
 </head>
 <body>
@@ -167,6 +177,20 @@
       <div>
         <h2>📂 File Info</h2>
         <div id="fileInfo" class="file-info">No files uploaded.</div>
+
+        <div class="file-info" style="margin-top: 30px;">
+          <h3 style="margin-bottom: 10px;">📊 Table Info</h3>
+          <p><strong>Total Files:</strong> <span id="totalCount">0</span></p>
+          <p><strong>Successful:</strong> <span id="successCount">0</span></p>
+          <p style="color: #e53935;"><strong>Failed:</strong> <span id="failedCount">0</span></p>
+
+          <div id="failedFilesContainer" style="margin-top: 10px; display: none;">
+            <p><strong>❌ Failed Files:</strong></p>
+            <ul id="failedFilesList">
+              <!-- Filled dynamically -->
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div class="sidebar-buttons">
@@ -203,6 +227,12 @@
     const fileInfo = document.getElementById("fileInfo");
     const themeToggle = document.getElementById("themeToggle");
 
+    const totalCount = document.getElementById("totalCount");
+    const successCount = document.getElementById("successCount");
+    const failedCount = document.getElementById("failedCount");
+    const failedFilesContainer = document.getElementById("failedFilesContainer");
+    const failedFilesList = document.getElementById("failedFilesList");
+
     let uploadedFiles = [];
 
     if (localStorage.getItem("theme") === "dark") {
@@ -220,6 +250,7 @@
 
     uploadBtn.addEventListener("click", () => uploadInput.click());
     addMoreBtn.addEventListener("click", () => uploadInput.click());
+
     resetBtn.addEventListener("click", () => {
       uploadedFiles = [];
       fileInfo.innerHTML = "No files uploaded.";
@@ -227,6 +258,11 @@
       loader.classList.add("hidden");
       downloadBtn.classList.add("hidden");
       uploadInput.value = "";
+      totalCount.textContent = "0";
+      successCount.textContent = "0";
+      failedCount.textContent = "0";
+      failedFilesList.innerHTML = "";
+      failedFilesContainer.style.display = "none";
     });
 
     uploadInput.addEventListener("change", async () => {
@@ -234,7 +270,6 @@
       if (!files.length) return;
 
       uploadedFiles.push(...files);
-
       let totalSize = uploadedFiles.reduce((acc, f) => acc + f.size, 0);
       const startTime = performance.now();
       const formdata = new FormData();
@@ -263,6 +298,23 @@
           const timeTaken = ((performance.now() - startTime) / 1000).toFixed(2);
           statusText.textContent = `✅ Upload completed in ${timeTaken} sec.`;
           downloadBtn.classList.remove("hidden");
+
+          // Update table info
+          totalCount.textContent = result.total || uploadedFiles.length;
+          successCount.textContent = result.successCount || 0;
+          failedCount.textContent = result.failedFiles?.length || 0;
+
+          failedFilesList.innerHTML = "";
+          if (result.failedFiles && result.failedFiles.length) {
+            failedFilesContainer.style.display = "block";
+            result.failedFiles.forEach(f => {
+              const li = document.createElement("li");
+              li.textContent = f;
+              failedFilesList.appendChild(li);
+            });
+          } else {
+            failedFilesContainer.style.display = "none";
+          }
         } else {
           statusText.textContent = "❌ Upload failed.";
         }
