@@ -124,7 +124,10 @@ const extractPdfText = async (pdfPath) => {
 
           // Commercial goods with better handling
           if (!tableMeta.commercial_goods && /COMMERCIAL GOODS/i.test(rowStr)) {
-            tableMeta.commercial_goods = findMultiLineField(i, "COMMERCIAL GOODS DESCRIPTION:");
+            tableMeta.commercial_goods = findMultiLineField(i, "COMMERCIAL GOODS");
+
+
+
           }
 
           // Dates extraction
