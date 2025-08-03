@@ -114,18 +114,12 @@ const extractPdfText = async (pdfPath) => {
             }
           }
 
-
-
-
-
-
           // Brand description with fallback
 
 
           // Commercial goods with better handling
           if (!tableMeta.commercial_goods && /COMMERCIAL GOODS/i.test(rowStr)) {
             tableMeta.commercial_goods = findMultiLineField(i, "COMMERCIAL GOODS");
-
 
 
           }
@@ -145,7 +139,13 @@ const extractPdfText = async (pdfPath) => {
 
           // Style proto with more flexible matching
           if (!tableMeta.style_proto && /STYLE PROTO #/i.test(rowStr)) {
-            tableMeta.style_proto = rowStr.split(/#[:]?\s*/i)[1]?.split(/\s/)[0] || "";
+            let styleProto = rowStr.split(/#[:]?\s*/i)[1]?.split(/\s/)[0] || "";
+
+            if (styleProto === "HANGER") {
+              tableMeta.style_proto = undefined;
+            } else {
+              tableMeta.style_proto = styleProto;
+            }
           }
 
           // Improved product rows detection
