@@ -1,4 +1,3 @@
-
 const fs = require("fs");
 const pdf2table = require("pdf2table");
 const path = require("path");
@@ -9,7 +8,7 @@ async function waitForFileExists(filePath, maxRetries = 10, delay = 100) {
       try {
         fs.accessSync(filePath, fs.constants.R_OK);
         return true;
-      } catch (e) { }
+      } catch (e) {}
     }
     await new Promise((res) => setTimeout(res, delay));
   }
@@ -61,22 +60,26 @@ const extractPdfText = async (pdfPath) => {
           const row = cleanRows[i];
           const rowStr = row.join(" ");
 
+          // Basic PO detection
           if (!table1.po && /PO[:]?\s*\d+/i.test(rowStr)) {
             const poMatch = rowStr.match(/(?:PO|Purchase Order)[:\s]*(\d+)/i);
             table1.po = poMatch?.[1] || "";
           }
 
+          // Buyer/Vendor/Shipping Dest
           if (!table2.buyer && /buyer:/i.test(rowStr)) {
             table2.buyer = cleanRows[i + 1]?.join(" ") || "";
             table2.vendor = cleanRows[i + 2]?.join(" ") || "";
             table2.shipping_destination = cleanRows[i + 3]?.join(" ") || "";
           }
 
+          // Style info
           if (!tableMeta.style && /style:/i.test(rowStr)) {
             tableMeta.style = rowStr.match(/style:\s*(\S+)/i)?.[1] || "";
             tableMeta.style_description = findMultiLineField(i, "Style Description:");
           }
 
+          // Brand description
           if (!tableMeta.brand_desc && /BRAND DESC:/i.test(rowStr)) {
             const currentLineMatch = rowStr.match(/BRAND DESC:\s*(.+?)(?:\s*(?:PRODUCT CATEGORY DESC|$))/i);
             if (currentLineMatch && currentLineMatch[1].trim()) {
@@ -97,27 +100,29 @@ const extractPdfText = async (pdfPath) => {
             }
           }
 
+          // COMMERCIAL GOODS DESCRIPTION
           if (!tableMeta.commercial_goods && /COMMERCIAL GOODS/i.test(rowStr)) {
             tableMeta.commercial_goods = findMultiLineField(i, "COMMERCIAL GOODS");
           }
 
+          // Dates
           const extractDate = (fieldName) => {
             return rowStr.match(new RegExp(`${fieldName}\\s*(\\d{2}/\\d{2}/\\d{4})`))?.[1] || "";
           };
-
           if (!tableMeta.original_crd_date) {
             tableMeta.original_crd_date = extractDate("Original CRD Date:");
           }
-
           if (!tableMeta.original_in_dc_date) {
             tableMeta.original_in_dc_date = extractDate("Original In-DC Date:");
           }
 
+          // Style proto
           if (!tableMeta.style_proto && /STYLE PROTO #/i.test(rowStr)) {
             let styleProto = rowStr.split(/#[:]?\s*/i)[1]?.split(/\s/)[0] || "";
             tableMeta.style_proto = (styleProto === "HANGER") ? undefined : styleProto;
           }
 
+          // Extract Product Rows (with or without UPC)
           const upc = row.find(cell => cell.replace(/\D/g, "").length >= 12);
           if (upc && row.length >= 7) {
             try {
@@ -133,7 +138,28 @@ const extractPdfText = async (pdfPath) => {
                 unit_cost: parseFloat((row[upcIndex + 4] || "").replace(/[^\d.-]/g, "")) || 0,
                 total_cost: parseFloat((row[upcIndex + 5] || "").replace(/[^\d.-]/g, "")) || 0,
               });
-            } catch (e) { }
+            } catch (e) {}
+          } else if (!upc && row.length >= 8) {
+            // Handle missing UPC gracefully (like in your PDF)
+            const startIndex = row.length - 5;
+            const unitCost = parseFloat((row[startIndex + 3] || "").replace(/[^\d.-]/g, "")) || 0;
+            const totalCost = parseFloat((row[startIndex + 4] || "").replace(/[^\d.-]/g, "")) || 0;
+
+            if (unitCost && totalCost) {
+              table3.push({
+                color: row[0] || "",
+                color_description: row[1] || "",
+                size: row[2] || "",
+                upc: "", // Missing
+                original_quantity: parseInt(row[startIndex]) || 0,
+                current_quantity: parseInt(row[startIndex + 1]) || 0,
+                shipped_quantity: parseInt(row[startIndex + 2]) || 0,
+                unit_cost: unitCost,
+                total_cost: totalCost,
+              });
+            } 
+
+            
           }
         }
 
