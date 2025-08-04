@@ -151,7 +151,7 @@ const extractPdfText = async (pdfPath) => {
           // Improved product rows detection
           if (row.length >= 9) {
             const upc = row[3]?.replace(/\D/g, "");
-            if (upc && upc.length >= 12) { // More flexible UPC check
+            if (upc && upc.length >= 12) { 
               try {
                 table3.push({
                   color: row[0] || "",
@@ -189,14 +189,15 @@ const extractPdfText = async (pdfPath) => {
             }
           }
 
+          // ======================= || failid pdf CODE || =======================
 
           // else if (
-          //   row.length === 5 &&
-          //   row[0]?.match(/Total For Color:/) &&
-          //   row[1]?.match(/\d+/) &&
-          //   row[2]?.match(/\d+/) &&
-          //   row[3]?.match(/\d+/) &&
-          //   row[4]?.match(/[^\d.-]/)
+            // row.length === 5 &&
+            // row[0]?.match(/Total For Color:/) &&
+            // row[1]?.match(/\d+/) &&
+            // row[2]?.match(/\d+/) &&
+            // row[3]?.match(/\d+/) &&
+            // row[4]?.match(/[^\d.-]/)
 
           // ) {
           //   try {
@@ -216,7 +217,10 @@ const extractPdfText = async (pdfPath) => {
           //     continue;
           //   }
           // }
+ 
+          // ================ || Faild pdf CODE || ================
 
+  
 
         }
 
