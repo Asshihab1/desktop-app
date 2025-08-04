@@ -169,6 +169,66 @@ const extractPdfText = async (pdfPath) => {
               }
             }
           }
+          else if (row.length >= 8 && row[0]?.match(/^[A-Z]\d+/)) {
+
+            try {
+              table3.push({
+                color: row[0] || "",
+                color_description: row[1] || "",
+                size: row[2] || "",
+                upc: "",
+                original_quantity: parseInt(row[3].replace(/\D/g, "")) || 0,
+                current_quantity: parseInt(row[4].replace(/\D/g, "")) || 0,
+                shipped_quantity: parseInt(row[5].replace(/\D/g, "")) || 0,
+                unit_cost: parseFloat(String(row[6] || "").replace(/[^\d.-]/g, "")) || 0,
+                total_cost: parseFloat(String(row[7] || "").replace(/[^\d.-]/g, "")) || 0,
+              });
+            } catch (e) {
+              continue;
+            }
+          }
+
+
+          else if (
+            row.length === 5 &&
+            row[0]?.match(/Total For Color:/) &&
+            row[1]?.match(/\d+/) &&
+            row[2]?.match(/\d+/) &&
+            row[3]?.match(/\d+/) &&
+            row[4]?.match(/[^\d.-]/)
+
+          ) {
+            try {
+              const color = row[0].replace("Total For Color:", "").trim();
+              table3.push({
+                color: color,
+                color_description: "", // You can’t extract this from this row
+                size: "",
+                upc: "",
+                original_quantity: parseInt(row[1].replace(/\D/g, "")) || 0,
+                current_quantity: parseInt(row[2].replace(/\D/g, "")) || 0,
+                shipped_quantity: parseInt(row[3].replace(/\D/g, "")) || 0,
+                unit_cost: 0, // Not available here
+                total_cost: parseFloat(row[4].replace(/[^\d.-]/g, "")) || 0,
+              });
+            } catch (e) {
+              continue;
+            }
+          }
+
+
+
+
+
+          else {
+            // console.log(row.length)
+            console.log(row)
+          }
+
+
+
+
+
         }
 
         resolve({
