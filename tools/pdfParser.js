@@ -1,3 +1,4 @@
+
 const fs = require("fs");
 const pdf2table = require("pdf2table");
 const path = require("path");
@@ -36,17 +37,15 @@ const extractPdfText = async (pdfPath) => {
           });
         }
 
-        // Improved row cleaning
         const cleanRows = rows
           .filter(row => row.some(cell => (cell || "").trim() !== ""))
           .map(row => row.map(cell => (cell || "").trim()));
 
-        const table1 = {}; // PO Info
-        const table2 = {}; // Shipping Info
-        const table3 = []; // Products
-        const tableMeta = {}; // Metadata
+        const table1 = {};
+        const table2 = {};
+        const table3 = [];
+        const tableMeta = {};
 
-        // Helper function to find multi-line fields
         const findMultiLineField = (startRow, searchTerm, linesToCheck = 3) => {
           for (let i = startRow; i < Math.min(startRow + linesToCheck, cleanRows.length); i++) {
             const rowText = cleanRows[i].join(" ");
@@ -62,69 +61,46 @@ const extractPdfText = async (pdfPath) => {
           const row = cleanRows[i];
           const rowStr = row.join(" ");
 
-          // More flexible PO number detection
           if (!table1.po && /PO[:]?\s*\d+/i.test(rowStr)) {
             const poMatch = rowStr.match(/(?:PO|Purchase Order)[:\s]*(\d+)/i);
             table1.po = poMatch?.[1] || "";
           }
 
-          // Improved shipping info extraction
           if (!table2.buyer && /buyer:/i.test(rowStr)) {
             table2.buyer = cleanRows[i + 1]?.join(" ") || "";
             table2.vendor = cleanRows[i + 2]?.join(" ") || "";
             table2.shipping_destination = cleanRows[i + 3]?.join(" ") || "";
           }
 
-          // More robust style extraction
           if (!tableMeta.style && /style:/i.test(rowStr)) {
             tableMeta.style = rowStr.match(/style:\s*(\S+)/i)?.[1] || "";
             tableMeta.style_description = findMultiLineField(i, "Style Description:");
           }
 
-
-          // brand desc started====================
-
-
           if (!tableMeta.brand_desc && /BRAND DESC:/i.test(rowStr)) {
-
             const currentLineMatch = rowStr.match(/BRAND DESC:\s*(.+?)(?:\s*(?:PRODUCT CATEGORY DESC|$))/i);
             if (currentLineMatch && currentLineMatch[1].trim()) {
               tableMeta.brand_desc = currentLineMatch[1].trim();
-            }
-            // Method 2: Get from next line if current line only contains label
-            else if (rowStr.trim() === "BRAND DESC:" && i + 1 < cleanRows.length) {
+            } else if (rowStr.trim() === "BRAND DESC:" && i + 1 < cleanRows.length) {
               tableMeta.brand_desc = cleanRows[i + 1].join(" ").trim();
-            }
-            // Method 3: Look ahead in following lines
-            else {
+            } else {
               for (let j = i + 1; j < Math.min(i + 3, cleanRows.length); j++) {
                 const nextLine = cleanRows[j].join(" ").trim();
-                if (nextLine && !nextLine.includes(":")) { // Skip lines with other labels
+                if (nextLine && !nextLine.includes(":")) {
                   tableMeta.brand_desc = nextLine;
                   break;
                 }
               }
             }
-
-            // Only do minimal cleaning
             if (tableMeta.brand_desc) {
-              tableMeta.brand_desc = tableMeta.brand_desc
-                .replace(/\s+/g, ' ') // Collapse multiple spaces
-                .trim();
+              tableMeta.brand_desc = tableMeta.brand_desc.replace(/\s+/g, ' ').trim();
             }
           }
 
-          // Brand description with fallback
-
-
-          // Commercial goods with better handling
           if (!tableMeta.commercial_goods && /COMMERCIAL GOODS/i.test(rowStr)) {
             tableMeta.commercial_goods = findMultiLineField(i, "COMMERCIAL GOODS");
-
-
           }
 
-          // Dates extraction
           const extractDate = (fieldName) => {
             return rowStr.match(new RegExp(`${fieldName}\\s*(\\d{2}/\\d{2}/\\d{4})`))?.[1] || "";
           };
@@ -137,91 +113,28 @@ const extractPdfText = async (pdfPath) => {
             tableMeta.original_in_dc_date = extractDate("Original In-DC Date:");
           }
 
-          // Style proto with more flexible matching
           if (!tableMeta.style_proto && /STYLE PROTO #/i.test(rowStr)) {
             let styleProto = rowStr.split(/#[:]?\s*/i)[1]?.split(/\s/)[0] || "";
-
-            if (styleProto === "HANGER") {
-              tableMeta.style_proto = undefined;
-            } else {
-              tableMeta.style_proto = styleProto;
-            }
+            tableMeta.style_proto = (styleProto === "HANGER") ? undefined : styleProto;
           }
 
-          // Improved product rows detection
-          if (row.length >= 9) {
-            const upc = row[3]?.replace(/\D/g, "");
-            if (upc && upc.length >= 12) { 
-              try {
-                table3.push({
-                  color: row[0] || "",
-                  color_description: row[1] || "",
-                  size: row[2] || "",
-                  upc: upc,
-                  original_quantity: parseInt(row[4]) || 0,
-                  current_quantity: parseInt(row[5]) || 0,
-                  shipped_quantity: parseInt(row[6]) || 0,
-                  unit_cost: parseFloat(String(row[7] || "").replace(/[^\d.-]/g, "")) || 0,
-                  total_cost: parseFloat(String(row[8] || "").replace(/[^\d.-]/g, "")) || 0,
-                });
-              } catch (e) {
-                continue;
-              }
-            }
-          }
-
-          else if (row.length >= 8 && row[0]?.match(/^[A-Z]\d+/)) {
-
+          const upc = row.find(cell => cell.replace(/\D/g, "").length >= 12);
+          if (upc && row.length >= 7) {
             try {
+              const upcIndex = row.indexOf(upc);
               table3.push({
                 color: row[0] || "",
                 color_description: row[1] || "",
                 size: row[2] || "",
-                upc: "",
-                original_quantity: parseInt(row[3].replace(/\D/g, "")) || 0,
-                current_quantity: parseInt(row[4].replace(/\D/g, "")) || 0,
-                shipped_quantity: parseInt(row[5].replace(/\D/g, "")) || 0,
-                unit_cost: parseFloat(String(row[6] || "").replace(/[^\d.-]/g, "")) || 0,
-                total_cost: parseFloat(String(row[7] || "").replace(/[^\d.-]/g, "")) || 0,
+                upc: upc.replace(/\D/g, ""),
+                original_quantity: parseInt(row[upcIndex + 1]) || 0,
+                current_quantity: parseInt(row[upcIndex + 2]) || 0,
+                shipped_quantity: parseInt(row[upcIndex + 3]) || 0,
+                unit_cost: parseFloat((row[upcIndex + 4] || "").replace(/[^\d.-]/g, "")) || 0,
+                total_cost: parseFloat((row[upcIndex + 5] || "").replace(/[^\d.-]/g, "")) || 0,
               });
-            } catch (e) {
-              continue;
-            }
+            } catch (e) { }
           }
-
-          // ======================= || failid pdf CODE || =======================
-
-          // else if (
-            // row.length === 5 &&
-            // row[0]?.match(/Total For Color:/) &&
-            // row[1]?.match(/\d+/) &&
-            // row[2]?.match(/\d+/) &&
-            // row[3]?.match(/\d+/) &&
-            // row[4]?.match(/[^\d.-]/)
-
-          // ) {
-          //   try {
-          //     const color = row[0].replace("Total For Color:", "").trim();
-          //     table3.push({
-          //       color: color,
-          //       color_description: "", // You can’t extract this from this row
-          //       size: "",
-          //       upc: "",
-          //       original_quantity: parseInt(row[1].replace(/\D/g, "")) || 0,
-          //       current_quantity: parseInt(row[2].replace(/\D/g, "")) || 0,
-          //       shipped_quantity: parseInt(row[3].replace(/\D/g, "")) || 0,
-          //       unit_cost: parseFloat(row[4].replace(/[^\d.-]/g, "")) || 0,
-          //       total_cost: parseFloat(row[4].replace(/[^\d.-]/g, "")) || 0,
-          //     });
-          //   } catch (e) {
-          //     continue;
-          //   }
-          // }
- 
-          // ================ || Faild pdf CODE || ================
-
-  
-
         }
 
         resolve({
