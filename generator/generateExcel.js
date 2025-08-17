@@ -57,16 +57,30 @@ async function generateExcel(results, outputPath) {
     });
 
     // Sort rows
-    const sizeOrder = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
+    const sizeOrder = ["XS", "S", "M", "L", "XL", "2XL", "XXL", "3XL", "4XL", "5XL"];
+
     allRows.sort((a, b) => {
+      // First sort by PO
       const poCompare = (a.po || "").localeCompare(b.po || "");
       if (poCompare !== 0) return poCompare;
 
-      const aSizeIndex = sizeOrder.indexOf((a.size || "").toUpperCase());
-      const bSizeIndex = sizeOrder.indexOf((b.size || "").toUpperCase());
+      // Then sort by size according to our predefined order
+      const getSizeIndex = (size) => {
+        const normalized = (size || "").toString().toUpperCase().trim()
+          .replace(/^EXTRA\s+/i, 'X') // Convert "Extra Large" to "XL"
+          .replace(/\s+/g, '');       // Remove all spaces
 
-      if (aSizeIndex !== -1 && bSizeIndex !== -1) return aSizeIndex - bSizeIndex;
-      return (a.size || "").localeCompare(b.size || "");
+        return sizeOrder.findIndex(s => normalized === s.toUpperCase());
+      };
+
+      const aIndex = getSizeIndex(a.size);
+      const bIndex = getSizeIndex(b.size);
+
+      // Both sizes are in our predefined order
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+
+      // Fallback to alphabetical if sizes aren't in our list
+      return (a.size || "").toString().localeCompare((b.size || "").toString());
     });
 
     // Add data to sheet
@@ -84,10 +98,7 @@ async function generateExcel(results, outputPath) {
         };
       }
 
-      // Format numeric cells
-      // Format numeric cells (without currency symbols)
-      // In the 'Apply styling' section of generateExcel.js, replace the number formatting with:
-      
+
       if (rowNumber > 1) {
         ['unit_cost', 'total_cost', 'original_quantity', 'current_quantity'].forEach(key => {
           const cell = row.getCell(key);
