@@ -8,7 +8,7 @@ async function waitForFileExists(filePath, maxRetries = 10, delay = 100) {
       try {
         fs.accessSync(filePath, fs.constants.R_OK);
         return true;
-      } catch (e) {}
+      } catch (e) { }
     }
     await new Promise((res) => setTimeout(res, delay));
   }
@@ -132,13 +132,13 @@ const extractPdfText = async (pdfPath) => {
                 color_description: row[1] || "",
                 size: row[2] || "",
                 upc: upc.replace(/\D/g, ""),
-                original_quantity: parseInt(row[upcIndex + 1]) || 0,
-                current_quantity: parseInt(row[upcIndex + 2]) || 0,
-                shipped_quantity: parseInt(row[upcIndex + 3]) || 0,
-                unit_cost: parseFloat((row[upcIndex + 4] || "").replace(/[^\d.-]/g, "")) || 0,
-                total_cost: parseFloat((row[upcIndex + 5] || "").replace(/[^\d.-]/g, "")) || 0,
+                original_quantity: parseInt((row[upcIndex + 1] || "").replace(/,/g, '')) || 0,
+                current_quantity: parseInt((row[upcIndex + 2] || "").replace(/,/g, '')) || 0,
+                shipped_quantity: parseInt((row[upcIndex + 3] || "").replace(/,/g, '')) || 0,
+                unit_cost: parseFloat((row[upcIndex + 4] || "").replace(/[^\d.-]/g, '')) || 0,
+                total_cost: parseFloat((row[upcIndex + 5] || "").replace(/[^\d.-]/g, '')) || 0,
               });
-            } catch (e) {}
+            } catch (e) { }
           } else if (!upc && row.length >= 8) {
             // Handle missing UPC gracefully (like in your PDF)
             const startIndex = row.length - 5;
@@ -157,9 +157,9 @@ const extractPdfText = async (pdfPath) => {
                 unit_cost: unitCost,
                 total_cost: totalCost,
               });
-            } 
+            }
 
-            
+
           }
         }
 
