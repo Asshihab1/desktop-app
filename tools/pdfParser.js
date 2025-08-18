@@ -151,8 +151,8 @@ const extractPdfText = async (pdfPath) => {
                 color_description: row[1] || "",
                 size: row[2] || "",
                 upc: "", // Missing
-                original_quantity: parseInt(row[startIndex]) || 0,
-                current_quantity: parseInt(row[startIndex + 1]) || 0,
+                original_quantity: parseInt((row[startIndex] || "").replace(/,/g, '')) || 0,
+                current_quantity: parseInt((row[startIndex + 1] || "").replace(/,/g, '')) || 0,
                 shipped_quantity: parseInt(row[startIndex + 2]) || 0,
                 unit_cost: unitCost,
                 total_cost: totalCost,
